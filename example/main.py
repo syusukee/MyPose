@@ -130,7 +130,9 @@ def main(args):
     # evaluation only
     if args.evaluate:
         print('\nEvaluation only')
-        loss, acc, predictions = validate(val_loader, model, criterion, njoints,
+        #loss, acc, predictions = validate(val_loader, model, criterion, njoints,
+        #                                  args.debug, args.flip)
+        predictions = myvalidate(val_loader, model, criterion, njoints,
                                           args.debug, args.flip)
         save_pred(predictions, checkpoint=args.checkpoint)
         return
@@ -256,6 +258,9 @@ def validate(val_loader, model, criterion, num_classes, debug=False, flip=True):
     losses = AverageMeter()
     acces = AverageMeter()
 
+    img_path = ""
+
+
     # predictions
     predictions = torch.Tensor(val_loader.dataset.__len__(), num_classes, 2)
 
@@ -339,6 +344,82 @@ def validate(val_loader, model, criterion, num_classes, debug=False, flip=True):
 
         bar.finish()
     return losses.avg, acces.avg, predictions
+
+def myvalidate(val_loader, model, criterion, num_classes, debug=False, flip=True):
+
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    acces = AverageMeter()
+
+    # predictions
+    predictions = torch.Tensor(val_loader.dataset.__len__(), num_classes, 2)
+
+    # switch to evaluate mode
+    model.eval()
+
+    gt_win, pred_win = None, None
+    end = time.time()
+    bar = Bar('Eval ', max=len(val_loader))
+    with torch.no_grad():
+        for i, (input, target, meta) in enumerate(val_loader):
+            # measure data loading time
+            data_time.update(time.time() - end)
+
+            input = input.to(device, non_blocking=True)
+
+            # compute output
+            output = model(input)
+            score_map = output[-1].cpu() if type(output) == list else output.cpu()
+            if flip:
+                flip_input = torch.from_numpy(fliplr(input.clone().numpy())).float().to(device)
+                flip_output = model(flip_input)
+                flip_output = flip_output[-1].cpu() if type(flip_output) == list else flip_output.cpu()
+                flip_output = flip_back(flip_output)
+                score_map += flip_output
+
+            # generate predictions
+            preds = final_preds(score_map, meta['center'], meta['scale'], [64, 64])
+            for n in range(score_map.size(0)):
+                predictions[meta['index'][n], :, :] = preds[n, :, :]
+
+
+            if debug:
+                gt_batch_img = batch_with_heatmap(input, target)
+                pred_batch_img = batch_with_heatmap(input, score_map)
+                if not gt_win or not pred_win:
+                    plt.subplot(121)
+                    gt_win = plt.imshow(gt_batch_img)
+                    plt.subplot(122)
+                    pred_win = plt.imshow(pred_batch_img)
+                else:
+                    gt_win.set_data(gt_batch_img)
+                    pred_win.set_data(pred_batch_img)
+                plt.pause(.05)
+                plt.draw()
+
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            # plot progress
+            bar.suffix  = '({batch}/{size}) Data: {data:.6f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss: {loss:.4f} | Acc: {acc: .4f}'.format(
+                        batch=i + 1,
+                        size=len(val_loader),
+                        data=data_time.val,
+                        bt=batch_time.avg,
+                        total=bar.elapsed_td,
+                        eta=bar.eta_td,
+                        loss=losses.avg,
+                        acc=acces.avg
+                        )
+            bar.next()
+
+        bar.finish()
+    return predictions
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
