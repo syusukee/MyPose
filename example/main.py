@@ -24,6 +24,14 @@ import pose.datasets as datasets
 import pose.losses as losses
 
 
+import torch.utils.data as data
+
+from pose.utils.osutils import *
+from pose.utils.imutils import *
+from pose.utils.transforms import *
+
+from ipdb import set_trace
+
 # get model names and dataset names
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -132,7 +140,7 @@ def main(args):
         print('\nEvaluation only')
         #loss, acc, predictions = validate(val_loader, model, criterion, njoints,
         #                                  args.debug, args.flip)
-        predictions = myvalidate(val_loader, model, criterion, njoints,
+        predictions = myvalidate(model, criterion, njoints,
                                           args.debug, args.flip)
         save_pred(predictions, checkpoint=args.checkpoint)
         return
@@ -345,15 +353,40 @@ def validate(val_loader, model, criterion, num_classes, debug=False, flip=True):
         bar.finish()
     return losses.avg, acces.avg, predictions
 
-def myvalidate(val_loader, model, criterion, num_classes, debug=False, flip=True):
+def myvalidate( model, criterion, num_classes, debug=False, flip=True):
 
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
     acces = AverageMeter()
 
+    img_folder = '/data3/wzwu/my'
+    img_num = 1
+    r = 0
+    center = [200, 200]
+    scale = 2
+    inp_res = 256
+    meanstd_file = './data/mpii/mean.pth.tar'
+    if isfile(meanstd_file):
+        meanstd = torch.load(meanstd_file)
+        mean = meanstd['mean']
+        std = meanstd['std']
+
+    input_list = []
+    for i in img_num:
+        img_path = os.path.join(img_folder, i)
+        print('img_path')
+        print(img_path)
+        set_trace()
+        img = load_image(img_path)
+        inp = crop(img, center, scale, [inp_res, inp_res], rot=r)
+        inp = color_normalize(inp, mean, std)
+        input_list.append(inp)
+
+
+
     # predictions
-    predictions = torch.Tensor(val_loader.dataset.__len__(), num_classes, 2)
+    predictions = torch.Tensor(img_num, num_classes, 2)
 
     # switch to evaluate mode
     model.eval()
@@ -362,7 +395,7 @@ def myvalidate(val_loader, model, criterion, num_classes, debug=False, flip=True
     end = time.time()
     bar = Bar('Eval ', max=len(val_loader))
     with torch.no_grad():
-        for i, (input, target, meta) in enumerate(val_loader):
+        for i, input in enumerate(input_list):
             # measure data loading time
             data_time.update(time.time() - end)
 
@@ -371,32 +404,34 @@ def myvalidate(val_loader, model, criterion, num_classes, debug=False, flip=True
             # compute output
             output = model(input)
             score_map = output[-1].cpu() if type(output) == list else output.cpu()
-            if flip:
-                flip_input = torch.from_numpy(fliplr(input.clone().numpy())).float().to(device)
-                flip_output = model(flip_input)
-                flip_output = flip_output[-1].cpu() if type(flip_output) == list else flip_output.cpu()
-                flip_output = flip_back(flip_output)
-                score_map += flip_output
+            #if flip:
+            #    flip_input = torch.from_numpy(fliplr(input.clone().numpy())).float().to(device)
+            #    flip_output = model(flip_input)
+            #    flip_output = flip_output[-1].cpu() if type(flip_output) == list else flip_output.cpu()
+            #    flip_output = flip_back(flip_output)
+            #    score_map += flip_output
 
             # generate predictions
-            preds = final_preds(score_map, meta['center'], meta['scale'], [64, 64])
-            for n in range(score_map.size(0)):
-                predictions[meta['index'][n], :, :] = preds[n, :, :]
+            preds = final_preds(score_map, center, scale, [100, 100])
+            print('preds')
+            print(preds)
+            print('predictions')
+            print(predictions)
+            #for n in range(score_map.size(0)):
+            #    predictions[meta['index'][n], :, :] = preds[n, :, :]
 
 
             if debug:
-                gt_batch_img = batch_with_heatmap(input, target)
                 pred_batch_img = batch_with_heatmap(input, score_map)
                 if not gt_win or not pred_win:
                     plt.subplot(121)
-                    gt_win = plt.imshow(gt_batch_img)
                     plt.subplot(122)
                     pred_win = plt.imshow(pred_batch_img)
                 else:
-                    gt_win.set_data(gt_batch_img)
                     pred_win.set_data(pred_batch_img)
                 plt.pause(.05)
                 plt.draw()
+                plt.savefig('/data3/wzwu/test/'+str(i)+'.png')
 
 
             # measure elapsed time
