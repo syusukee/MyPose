@@ -6,7 +6,11 @@ from . import utils
 from . import losses
 
 import os, sys
+sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.join(os.path.dirname(__file__), "progress"))
+print(sys.path)
+import progress
+print(sys.path)
 from progress.bar import Bar as Bar
 
 __version__ = '0.1.0'

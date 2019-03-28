@@ -3,6 +3,11 @@ from __future__ import print_function, absolute_import
 import os
 import argparse
 import time
+
+
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 
 import torch
@@ -31,6 +36,8 @@ from pose.utils.imutils import *
 from pose.utils.transforms import *
 
 from ipdb import set_trace
+
+
 
 # get model names and dataset names
 model_names = sorted(name for name in models.__dict__
@@ -121,19 +128,19 @@ def main(args):
           % (sum(p.numel() for p in model.parameters())/1000000.0))
 
     # create data loader
-    train_dataset = datasets.__dict__[args.dataset](is_train=True, **vars(args))
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.train_batch, shuffle=True,
-        num_workers=args.workers, pin_memory=True
-    )
+    #train_dataset = datasets.__dict__[args.dataset](is_train=True, **vars(args))
+    #train_loader = torch.utils.data.DataLoader(
+    #    train_dataset,
+    #    batch_size=args.train_batch, shuffle=True,
+    #    num_workers=args.workers, pin_memory=True
+    #)
 
-    val_dataset = datasets.__dict__[args.dataset](is_train=False, **vars(args))
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=args.test_batch, shuffle=False,
-        num_workers=args.workers, pin_memory=True
-    )
+    #val_dataset = datasets.__dict__[args.dataset](is_train=False, **vars(args))
+    #val_loader = torch.utils.data.DataLoader(
+    #    val_dataset,
+    #    batch_size=args.test_batch, shuffle=False,
+    #    num_workers=args.workers, pin_memory=True
+    #)
 
     # evaluation only
     if args.evaluate:
@@ -284,6 +291,7 @@ def validate(val_loader, model, criterion, num_classes, debug=False, flip=True):
             data_time.update(time.time() - end)
 
             input = input.to(device, non_blocking=True)
+            set_trace()
             target = target.to(device, non_blocking=True)
             target_weight = meta['target_weight'].to(device, non_blocking=True)
 
@@ -360,11 +368,12 @@ def myvalidate( model, criterion, num_classes, debug=False, flip=True):
     losses = AverageMeter()
     acces = AverageMeter()
 
-    img_folder = '/data3/wzwu/my'
+    img_folder = '/data3/wzwu/dataset/my'
     img_num = 1
     r = 0
-    center = [200, 200]
-    scale = 2
+    center1 = torch.Tensor([1281,2169])
+    center2 = torch.Tensor([[1281,2169]])
+    scale = torch.Tensor([10.0])
     inp_res = 256
     meanstd_file = './data/mpii/mean.pth.tar'
     if isfile(meanstd_file):
@@ -373,13 +382,14 @@ def myvalidate( model, criterion, num_classes, debug=False, flip=True):
         std = meanstd['std']
 
     input_list = []
-    for i in img_num:
-        img_path = os.path.join(img_folder, i)
+    for i in range(img_num):
+        img_name = str(i)+'.jpg'
+        img_path = os.path.join(img_folder,img_name)
         print('img_path')
         print(img_path)
         set_trace()
         img = load_image(img_path)
-        inp = crop(img, center, scale, [inp_res, inp_res], rot=r)
+        inp = crop(img, center1, scale, [inp_res, inp_res], rot=r)
         inp = color_normalize(inp, mean, std)
         input_list.append(inp)
 
@@ -393,10 +403,12 @@ def myvalidate( model, criterion, num_classes, debug=False, flip=True):
 
     gt_win, pred_win = None, None
     end = time.time()
-    bar = Bar('Eval ', max=len(val_loader))
+    bar = Bar('Eval ', max=img_num)
     with torch.no_grad():
         for i, input in enumerate(input_list):
             # measure data loading time
+            s0, s1, s2 = input.size()
+            input = input.view(1, s0, s1, s2)
             data_time.update(time.time() - end)
 
             input = input.to(device, non_blocking=True)
@@ -412,13 +424,15 @@ def myvalidate( model, criterion, num_classes, debug=False, flip=True):
             #    score_map += flip_output
 
             # generate predictions
-            preds = final_preds(score_map, center, scale, [100, 100])
+            set_trace()
+            preds = final_preds(score_map, center2, scale, [64, 64])
+            set_trace()
             print('preds')
             print(preds)
             print('predictions')
             print(predictions)
-            #for n in range(score_map.size(0)):
-            #    predictions[meta['index'][n], :, :] = preds[n, :, :]
+            for n in range(score_map.size(0)):
+                predictions[i, :, :] = preds[n, :, :]
 
 
             if debug:
@@ -441,7 +455,7 @@ def myvalidate( model, criterion, num_classes, debug=False, flip=True):
             # plot progress
             bar.suffix  = '({batch}/{size}) Data: {data:.6f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss: {loss:.4f} | Acc: {acc: .4f}'.format(
                         batch=i + 1,
-                        size=len(val_loader),
+                        size=img_num,
                         data=data_time.val,
                         bt=batch_time.avg,
                         total=bar.elapsed_td,

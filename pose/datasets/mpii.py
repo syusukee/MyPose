@@ -14,6 +14,7 @@ from pose.utils.imutils import *
 from pose.utils.transforms import *
 
 
+
 class Mpii(data.Dataset):
     def __init__(self, is_train = True, **kwargs):
         self.img_folder = kwargs['image_path'] # root image folders
@@ -77,6 +78,7 @@ class Mpii(data.Dataset):
         # pts[:, 0:2] -= 1  # Convert pts to zero based
 
         # c = torch.Tensor(a['objpos']) - 1
+        #set_trace()
         c = torch.Tensor(a['objpos'])
         s = a['scale_provided']
 
@@ -121,6 +123,7 @@ class Mpii(data.Dataset):
                 target[i], vis = draw_labelmap(target[i], tpts[i]-1, self.sigma, type=self.label_type)
                 target_weight[i, 0] *= vis
 
+        print(c) 
         # Meta info
         meta = {'index' : index, 'center' : c, 'scale' : s,
         'pts' : pts, 'tpts' : tpts, 'target_weight': target_weight}

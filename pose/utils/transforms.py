@@ -8,6 +8,7 @@ import torch
 
 from .misc import *
 from .imutils import *
+from ipdb import set_trace
 
 
 def color_normalize(x, mean, std):
@@ -80,6 +81,7 @@ def get_transform(center, scale, res, rot=0):
     """
     General image processing functions
     """
+    #set_trace()
     # Generate transformation matrix
     h = 200 * scale
     t = np.zeros((3, 3))
