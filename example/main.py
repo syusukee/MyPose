@@ -438,8 +438,8 @@ def myvalidate( model, criterion, num_classes, debug=False, flip=True):
             if debug:
                 pred_batch_img = batch_with_heatmap(input, score_map)
                 if not gt_win or not pred_win:
-                    plt.subplot(121)
-                    plt.subplot(122)
+                    #plt.subplot(121)
+                    #plt.subplot(122)
                     pred_win = plt.imshow(pred_batch_img)
                 else:
                     pred_win.set_data(pred_batch_img)

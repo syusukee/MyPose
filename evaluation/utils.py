@@ -1,6 +1,7 @@
 
 def visualize(oriImg, points, pa):
     import matplotlib
+    matplotlib.use('Agg')
     import cv2 as cv
     import matplotlib.pyplot as plt
     import math

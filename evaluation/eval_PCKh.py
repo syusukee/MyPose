@@ -5,17 +5,22 @@ from utils import visualize
 import numpy as np
 import os
 import argparse
+import sys
+from ipdb import set_trace
+
+sys.path.append('/data3/wzwu/MyPose')
 
 def main(args):
-    detection = loadmat('evaluation/data/detections.mat')
+    print(sys.path)
+    detection = loadmat('data/detections.mat')
     det_idxs = detection['RELEASE_img_index']
-    debug = 0
+    debug = 1
     threshold = 0.5
     SC_BIAS = 0.6
 
     pa = [2, 3, 7, 7, 4, 5, 8, 9, 10, 0, 12, 13, 8, 8, 14, 15]
 
-    dict = loadmat('evaluation/data/detections_our_format.mat')
+    dict = loadmat('data/detections_our_format.mat')
     dataset_joints = dict['dataset_joints']
     jnt_missing = dict['jnt_missing']
     pos_pred_src = dict['pos_pred_src']
@@ -28,6 +33,12 @@ def main(args):
     predfile = args.result
     preds = loadmat(predfile)['preds']
     pos_pred_src = transpose(preds, [1, 2, 0])
+    
+    annopath = '/data3/wzwu/MyPose/evaluation/data/mpii_human_pose_v1_u12_1.mat'
+    mat = loadmat(annopath)
+    
+    print(len(det_idxs[0]))
+    set_trace()
 
 
     if debug:
@@ -35,7 +46,8 @@ def main(args):
         for i in range(len(det_idxs[0])):
             anno = mat['RELEASE']['annolist'][0, 0][0][det_idxs[0][i] - 1]
             fn = anno['image']['name'][0, 0][0]
-            imagePath = 'data/mpii/images/' + fn
+            # imagePath = 'data/mpii/images/' + fn 
+            imagePath = '/data3/wzwu/dataset/images/' + fn
             oriImg = sio.imread(imagePath)
             pred = pos_pred_src[:, :, i]
             visualize(oriImg, pred, pa)
@@ -92,7 +104,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MPII PCKh Evaluation')
-    parser.add_argument('-r', '--result', default='checkpoint/mpii/hg_s2_b1/preds.mat',
+    parser.add_argument('-r', '--result', default='../checkpoint/mpii/hg_s2_b1/preds.mat',
                         type=str, metavar='PATH',
                         help='path to result (default: checkpoint/mpii/hg_s2_b1/preds.mat)')
     args = parser.parse_args()
